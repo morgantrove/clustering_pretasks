@@ -3,15 +3,25 @@
 import sys
 import requests 
 import string
+import re
 
 
 tag_name = 'relatedChannels'
 
 
 def match_parenthesis(text):
-# Returns the index of the matching parenthesis.
-    pass
-
+# Returns the index of the matching parenthesis. Returns -1 if unmatched.
+    begun = False
+    counter = 0
+    for c in range(len(text)):
+        if counter < 0: return -1
+        if text[c] == ('[' or '{' or '('):
+            if not begun: begun = True
+            counter += 1
+        if text[c] == (']' or '}' or ')'):
+            counter -= 1
+        if counter == 0 and begun: return c
+    return -1
 
 
 def main(args):
@@ -38,7 +48,10 @@ def main(args):
         if rc_id == -1:
             contbit = False; break;
         text_str = text_str[rc_id+1:]
-        related = text_str[:match_parenthesis(text_str)]
+        related = text_str[len(tag_name)+3:match_parenthesis(text_str)+1]
+        rels_list = related[0:match_parenthesis(related)]
+        print len(rels_list)
+        print ""
 
 if __name__ == "__main__":
     args = sys.argv[1:]
