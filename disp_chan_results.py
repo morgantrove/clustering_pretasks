@@ -23,6 +23,13 @@ def match_parenthesis(text):
         if counter == 0 and begun: return c
     return -1
 
+# return the sublist in superlist LoLs whose ind'th element is elem
+def findsubelem(elem, LoLs, ind):
+    if len(LoLs) == 0: return None
+    for l in LoLs:
+        if elem == l[ind]: 
+            return l;
+    return None;
 
 def main(args):
     if len(args) != 1:
@@ -33,7 +40,8 @@ def main(args):
 
     # Argument 'arg' taken as the channel ID number.
 
-    r_str = "http://internal-api.trove.com/channels/" + arg + "/result"
+    r_str = "http://internal-api.trove.com/channels/" + arg + "/result?limit=100" 
+        # ^^ also try arg+"/result". 
     print "requesting \'%s\'..." % r_str
     r = requests.get(r_str)
     if not r.status_code == 200:
@@ -55,15 +63,25 @@ def main(args):
             if relChInx == -1: break
             relChn = related[0:relChInx].lstrip(", {")
             related = related[relChInx+1:]
-            relChn = re.sub('\"', '', relChn[16:-25])
+            relChn = re.sub('\"', '', relChn[:-25])
+            relChn = relChn[13+relChn.find('displayName: '):]
             relChn = re.sub(', id:', ' -- channel ID', relChn)
-            if not relChn in rels_list[0]:
-                rels_list.append([relChn 0])
+            rels_list.append(relChn)
         
+        counts = []
+    for ch in rels_list:
+        newl = findsubelem(ch, counts, 0)
+        if None == newl:
+            counts.append([ch, 1])
+        else:
+            newl[1] = newl[1]+1;
+
+    counts.sort(key=lambda x: x[1])
+    counts.reverse()
 
     print "All channels directly related to channel \'%s\':" % arg
-    for rc in rels_list:
-        print " -> ", rc, rels_list.count(rc)
+    for rc in counts:
+        print " -> ", rc[0], "(count:", rc[1], ")"
 
 if __name__ == "__main__":
     args = sys.argv[1:]
