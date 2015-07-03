@@ -31,33 +31,48 @@ def findsubelem(elem, LoLs, ind):
             return l;
     return None;
 
+def getLabel(ID):
+    req_file = requests.get("http://internal-api.trove.com/channels/"+ID).text;
+    req_file = req_file[req_file.find("displayName") + 15:]
+    return req_file[:req_file.find('"')]
+
+
+def disp_ch(_id, count):
+    print "#" + _id + " (count " + str(count) + ")\t: " + getLabel(_id)
+
+def disp_ch(_id, count, label):
+    print "#" + _id + " (count " + str(count) + ")\t: " + label
+
+def disp_ch(_id, count, label, ncount):
+    print "#" + _id + " (" + str(count) + "  --  " + str(ncount) + "): " + label
+
+def getFacetChannels(corp):
+    chnls = corp[corp.find('"facet_fields":')+1:]
+    chnls = chnls[chnls.find('[')+1:]
+    chnls = chnls[:chnls.find(']')]
+    ch_list = chnls.split(",")
+
+    f_chnls = []
+    for i in range(len(ch_list)/2): # mod 2 is given.
+        ent_id = ch_list[2*i].strip().strip('"')
+        ecount = ch_list[2*i+1].strip()
+        # disp_ch(ent_id, ecount) # if desired.
+        f_chnls.append([ent_id, int(ecount), getLabel(ent_id)])
+    return f_chnls
+        
+
+
 def main(args):
     if len(args) < 1:
         print "Not enough arguments. Exiting."; return
-    content_index = args[0].find("content:")
-    arg = args[0]
+    arg = args[0] # Takes a well-formed, whitespace-free solr query.
     r_str = ''
-    if not -1 == content_index:
-        if not len(args) == 1:
-            print "Too many arguments. Exiting."; return
-        r_str_init = "http://builder-solr-slave.dev.trove.com:7979/solr/select/?q=" + args[0] + \
-                            "&qt=troveapihandler&recency=1&rows=1&fl=channel" 
-        r_init = requests.get(r_str_init)
-        num_found = r_init.text[r_init.text.find('"numFound":')+12:r_init.text.find('"start":')-1]
-        r_str = "http://builder-solr-slave.dev.trove.com:7979/solr/select/?q=" + args[0] + \
-                            "&qt=troveapihandler&recency=1&rows=" + num_found + "&fl=channel" 
 
-    else:
-        # assume it is an OR, ie a more 'english' query than 'content:65022595004265876'.
-        arg = '+'.join(args)
-        # arg = re.sub('"', '\"', arg)
-        r_str_init = "http://solr.dev.trove.com:7979/solr/select/?q=%28%22" + arg + \
-                            "%22%29%0D%0A&version=2.2&start=0&rows=1&indent=on" 
-        r_init = requests.get(r_str_init)
-        nf = r_init.text[r_init.text.find('numFound')+10:]
-        nf = nf[:nf.find(',')] 
-        r_str = "http://solr.dev.trove.com:7979/solr/select/?q=%28%22" + arg + \
-                "%22%29%0D%0A&version=2.2&start=0&rows=2917&indent=on" 
+    # ** Users must ensure they use the _ascii_ ' \" ', ie backslash & ascii-ambi-quote, in their arguments
+    #  Otherwise, the quotes are not recognized by SOLR.
+
+    r_str = "http://solr.dev.trove.com:7979/solr/select?indent=on&version=2.2&q=%28" + arg + \
+            "%29&start=0&rows=2940&fl=facets&fq=&hl.fl=&explainOther=&qt=&wt=" 
 
     
     print "requesting \'%s\'..." % r_str
@@ -67,7 +82,18 @@ def main(args):
     else:
         print "successful request."
 
+    ###  Channel format:  [string ID number, int count, string english label(, float normed count)]  ###
 
+    f_chnls = getFacetChannels(r.text)
+    sumCounts = 0.0 # <- float!
+    for ch in f_chnls:
+        sumCounts += ch[1]
+    for ch in f_chnls:
+        ch.append(ch[1] / sumCounts)
+        # disp_ch(ch[0], ch[1], ch[2], ch[3]) # if desired.
+
+
+"""
 #####  find and rank the related channels:
     text_str = r.text
     contbit = True
@@ -88,7 +114,7 @@ def main(args):
                 while not r_ch[0].isdigit():
                     r_ch = r_ch[1:]
                 chnls.append(r_ch)
-            counts = []
+    counts = []
     for ch in chnls:
         newl = findsubelem(ch, counts, 0)
         if None == newl:
@@ -103,16 +129,8 @@ def main(args):
     for rc in counts:
         print " -> ", rc[0], "(count:", rc[1], ")"
 
-#####  find facets:
-    text_str = text_str[text_str.find('"facet_counts":')+16:-1]
-    print "Found facets for the query: [todo]"
-    facets = []
+"""
 
-    while True:
-        facet_id = text_str.find('"facet_');
-        if facet_id == -1: break;
-        else: text_str = text_str[facet_id+1:]
-        field_name = text_str[:text_str.find('"')]
         
 
 
